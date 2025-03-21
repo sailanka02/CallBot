@@ -1,48 +1,64 @@
-// localhost/api/dialin [POST]
-
-import {
-  defaultBotProfile,
-  defaultConfig,
-  defaultMaxDuration,
-  defaultServices,
-} from "./../../../rtvi.config";
-
+// [POST] /api
 export async function POST(request: Request) {
   const { test, callId, callDomain } = await request.json();
-
-  //@TODO: HMAC header verification
 
   if (test) {
     // Webhook creation test response
     return new Response(JSON.stringify({ test: true }), { status: 200 });
   }
 
-  if (!callId || !callDomain || !process.env.DAILY_BOTS_URL) {
-    return new Response(`callId or callDomain not found on request body`, {
+  if (!callId || !callDomain || !process.env.DAILY_BOTS_KEY) {
+    return Response.json(`callId and/or callDomain not found on request body`, {
       status: 400,
     });
   }
 
   const payload = {
-    bot_profile: defaultBotProfile,
-    services: defaultServices,
-    max_duration: defaultMaxDuration,
-    api_keys: {
-      together: process.env.TOGETHER_API_KEY,
-      cartesia: process.env.CARTESIA_API_KEY,
-    },
-    config: defaultConfig,
+    bot_profile: "voice_2024_10",
+    max_duration: 600,
     dialin_settings: {
       callId,
       callDomain,
     },
+    services: {
+      llm: "together",
+      tts: "cartesia",
+    },
+    config: [
+      {
+        service: "tts",
+        options: [
+          { name: "voice", value: "79a125e8-cd45-4c13-8a67-188112f4dd22" },
+        ],
+      },
+      {
+        service: "llm",
+        options: [
+          {
+            name: "model",
+            value: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+          },
+          {
+            name: "initial_messages",
+            value: [
+              {
+                role: "system",
+                content:
+                  "You are a assistant called ExampleBot. You're talking on the phone. You can ask me anything. Keep responses brief and legible.",
+              },
+            ],
+          },
+          { name: "run_on_config", value: true },
+        ],
+      },
+    ],
   };
 
-  const req = await fetch(process.env.DAILY_BOTS_URL, {
+  const req = await fetch("https://api.daily.co/v1/bots/start", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.DAILY_BOTS_API_KEY}`,
+      Authorization: `Bearer ${process.env.DAILY_BOTS_KEY}`,
     },
     body: JSON.stringify(payload),
   });
